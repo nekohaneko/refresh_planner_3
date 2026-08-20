@@ -14,7 +14,7 @@ button{font:inherit;cursor:pointer;border-radius:9px;padding:10px 14px}.primary{
 .hint,.small{font-size:13px;color:#666}.hint{margin-top:6px}.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.stat{border:1px solid #d8dce3;border-radius:10px;padding:12px;background:#fafbfc}.stat .k{font-size:12px;color:#666}.stat .v{font-size:21px;font-weight:700;margin-top:4px}
 .condition{border:1px solid #d8dce3;border-radius:10px;padding:12px;margin-bottom:9px;background:#fcfcfd}.remove{white-space:nowrap}
 .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.success,.warning,.error{border-radius:10px;padding:12px;line-height:1.6;margin-top:12px}.success{background:#f0f8f2;border:1px solid #b8d9bf}.warning{background:#fff7df;border:1px solid #ead58b}.error{background:#fff0f0;border:1px solid #e4a6a6}
-.timeline{display:flex;flex-direction:column;gap:12px}.timelineChunk{border:1px solid #d8dce3;border-radius:10px;overflow:hidden}.timelineChunkHeader{padding:8px 10px;background:#fafbfc;font-weight:700;font-size:13px}.timelineRow{display:grid;grid-template-columns:repeat(24,minmax(0,1fr))}.seg{min-width:0;padding:7px 2px;text-align:center;font-size:11px;border-right:1px solid rgba(0,0,0,.08)}.seg:last-child{border:0}.play{background:#dff2e3}.rest{background:#e2eefb}.fixed-play{outline:2px solid #68a873;outline-offset:-2px}.fixed-rest{outline:2px solid #5e8fc7;outline-offset:-2px}.editable{cursor:pointer;user-select:none}.editable:hover{filter:brightness(.97)}.gauge-over{outline:3px solid #d33b3b!important;outline-offset:-3px;background:#ffe4e4!important}.gauge-under{outline:3px solid #d33b3b!important;outline-offset:-3px;background:#ffe4e4!important}.edit-note{font-size:13px;color:#666;margin:8px 0}.warning-list{margin:8px 0 0;padding-left:20px}.seg .time{font-weight:700}.seg .g{margin-top:4px;color:#555}
+.timeline{display:flex;flex-direction:column;gap:12px}.timelineChunk{border:1px solid #d8dce3;border-radius:10px;overflow:hidden}.timelineChunkHeader{padding:8px 10px;background:#fafbfc;font-weight:700;font-size:13px}.timelineRow{display:grid;grid-template-columns:repeat(24,minmax(0,1fr))}.seg{min-width:0;padding:7px 2px;text-align:center;font-size:11px;border-right:1px solid rgba(0,0,0,.08)}.seg:last-child{border:0}.play{background:#dff2e3}.rest{background:#e2eefb}.fixed-play{outline:2px solid #68a873;outline-offset:-2px}.fixed-rest{outline:2px solid #5e8fc7;outline-offset:-2px}.editable{cursor:pointer;user-select:none}.editable:hover{filter:brightness(.97)}.gauge-over{outline:3px solid #d33b3b!important;outline-offset:-3px}.gauge-under{outline:3px solid #d33b3b!important;outline-offset:-3px}.edit-note{font-size:13px;color:#666;margin:8px 0}.warning-list{margin:8px 0 0;padding-left:20px}.seg .time{font-weight:700}.seg .g{margin-top:4px;color:#555}
 @media(max-width:760px){.timelineRow{grid-template-columns:repeat(12,minmax(0,1fr))}.seg{font-size:10px;padding:6px 1px}.seg .time{font-size:9px}}
 table{width:100%;border-collapse:collapse;font-size:14px}th,td{border-bottom:1px solid #d8dce3;padding:8px 6px;text-align:left}th{background:#fafbfc}
 @media(max-width:760px){.grid,.row{grid-template-columns:1fr}.stats{grid-template-columns:1fr 1fr}}
@@ -83,7 +83,7 @@ table{width:100%;border-collapse:collapse;font-size:14px}th,td{border-bottom:1px
 <h2>おすすめプラン</h2>
 <div class="stats"><div class="stat"><div class="k">実際のプレイ時間</div><div class="v" id="actualPlay">-</div></div><div class="stat"><div class="k">実際の休憩時間</div><div class="v" id="actualRest">-</div></div><div class="stat"><div class="k">自由時間でのプレイ</div><div class="v" id="freePlay">-</div></div></div>
 <h3>タイムライン</h3>
-<div class="edit-note">タイムラインの「ライブ」「休憩」をクリックすると、その30分を切り替えられます。絶対プレイ・絶対休憩の時間帯は編集できません。変更するとゲージを再計算します。</div>
+<div class="edit-note">タイムラインの「ライブ」「休憩」をクリックすると、その30分を切り替えられます。変更するとゲージを再計算します。</div>
 <div id="timelineWarnings"></div>
 <div id="timeline" class="timeline"></div>
 <h3>タイムスケジュール</h3><div id="scheduleTable"></div>
@@ -226,17 +226,12 @@ function calculate(){
   }
 
   let best=null;
-  for(const st of states.values())
-    if(Math.abs(st.g-SCALE*100)<=Math.round(.03*SCALE)&&better(st,best))best=st;
-  if(!best)
-    for(const st of states.values())
-      if(!best||st.score>best.score||
-        (st.score===best.score&&(
-          st.switches<best.switches||
-          (st.switches===best.switches&&
-           Math.abs(st.g-SCALE*100)<Math.abs(best.g-SCALE*100)
-          )
-        )))best=st;
+  // 終了時ゲージを100%に近づけることは最適化条件にしない。
+  // 基準時ゲージが0%以外でも、最後だけ無理に100%へ合わせるために
+  // 途中のライブ／休憩が不自然になることを防ぐ。
+  for(const st of states.values()){
+    if(!best || better(st,best)) best=st;
+  }
   if(!best){msg.innerHTML='<div class="error">指定条件では実行可能なプランがありません。</div>';return}
 
   const actions=Array(N);let cur=best;for(let k=N-1;k>=0;k--){actions[k]=cur.act;cur=cur.prev}
@@ -268,6 +263,8 @@ function updateEditedTimeline(actions,fp,fr,g0){
   const warnings=[];
   const CHUNK=24;
 
+  // 最後の30分枠の終了時ゲージが100%でない場合も警告する。
+  // 通常の0%未満・100%超過警告とは別に、終了時点の未到達を知らせる。
   for(let base=0;base<actions.length;base+=CHUNK){
     const wrap=document.createElement("div");
     wrap.className="timelineChunk";
@@ -317,6 +314,14 @@ function updateEditedTimeline(actions,fp,fr,g0){
     wrap.appendChild(row);
     box.appendChild(wrap);
   }
+
+  const finalGauge = g;
+  if(Math.abs(finalGauge-100)>0.001){
+    const finalStart = scheduleLabel((actions.length-1)*STEP);
+    const finalEnd = scheduleLabel(actions.length*STEP);
+    warnings.push(`${finalStart}〜${finalEnd}でゲージが100%ではありません（${finalGauge.toFixed(1)}%）。`);
+  }
+
   renderTimelineWarnings(warnings);
 }
 
@@ -372,3 +377,5 @@ function wire(){
 }
 wire();
 
+</script>
+</body></html>
