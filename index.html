@@ -25,8 +25,7 @@ table{width:100%;border-collapse:collapse;font-size:14px}th,td{border-bottom:1px
 <h1>イベラン リフレッシュゲージ プランナー</h1>
 <div class="desc">30分単位です。プレイ時間を最大化しつつ、なるべく連続して走り、休むプランを作ります。<br>
   なるべく長く走る設定になっているので、きつかったら休憩時間を指定してください。<br>
-18時間でたまって6時間で全回復する計算なので、周回の速さやマイセカイなどによって誤差が出ます。 <br>
-終了時が100%にならない可能性があります。</div>
+18時間でたまって6時間で全回復する計算なので、周回の速さやマイセカイなどによって誤差が出ます。 </div>
 
 <div class="grid">
 <section class="card">
@@ -139,7 +138,7 @@ function optionList(){
 function addCondition(type,sv="",ev=""){
   const box=type==="play"?$("playConditions"):$("restConditions"),d=document.createElement("div");d.className="condition";
   d.innerHTML=`<div class="row"><div><label>開始日時</label><select class="c-start">${optionList()}</select></div><div><label>終了日時</label><select class="c-end">${optionList()}</select></div><button type="button" class="secondary remove">削除</button></div>`;
-  box.appendChild(d);d.querySelector(".c-start").value=sv;d.querySelector(".c-end").value=ev;d.querySelector(".remove").onclick=()=>d.remove();
+  box.appendChild(d);d.querySelector(".c-start").value=sv;d.querySelector(".c-end").value=ev;d.querySelector(".remove").onclick=()=>{d.remove();saveInputs();};
 }
 function refreshConditions(){
   document.querySelectorAll(".condition").forEach(row=>{
@@ -307,6 +306,8 @@ function updateEditedTimeline(actions,fp,fr,g0){
           actions[k]=actions[k]==="play"?"rest":"play";
           updateEditedTimeline(actions,fp,fr,g0);
           updateEditedSummary(actions,fp);
+          renderTable(actions,fp,fr);
+          saveInputs();
         });
       }
 
@@ -362,19 +363,66 @@ function renderTable(a,fp,fr){
   const rows=[];let k=0;while(k<a.length){const act=a[k],p=fp[k],r=fr[k];let j=k+1;while(j<a.length&&a[j]===act&&fp[j]===p&&fr[j]===r)j++;rows.push(`<tr><td>${scheduleLabel(k*STEP)}</td><td>${scheduleLabel(j*STEP)}</td><td>${fmtDuration((j-k)*STEP)}</td><td>${act==="play"?"ライブ":"休憩"}</td><td>${p?"絶対プレイ":r?"絶対休憩":"自由時間"}</td></tr>`);k=j}
   $("scheduleTable").innerHTML=`<table><thead><tr><th>開始</th><th>終了</th><th>連続時間</th><th>行動</th><th>区分</th></tr></thead><tbody>${rows.join("")}</tbody></table>`;
 }
+
+const STORAGE_KEY="refreshPlannerInputs_v1";
+
+function saveInputs(){
+  const data={
+    startDay:$("startDay").value,
+    startTime:$("startTime").value,
+    endDay:$("endDay").value,
+    endTime:$("endTime").value,
+    eventYear:$("eventYear").value,
+    eventMonth:$("eventMonth").value,
+    currentGauge:$("currentGauge").value,
+    avoidEdges:document.querySelector('input[name="avoidEdges"]:checked')?.value||"yes",
+    playConditions:getConds("play"),
+    restConditions:getConds("rest")
+  };
+  try{localStorage.setItem(STORAGE_KEY,JSON.stringify(data));}catch(e){}
+}
+
+function loadInputs(){
+  let data=null;
+  try{data=JSON.parse(localStorage.getItem(STORAGE_KEY)||"null");}catch(e){}
+  if(!data)return;
+
+  for(const id of ["startDay","startTime","endDay","endTime","eventYear","eventMonth"]){
+    if(data[id]!==undefined) $(id).value=String(data[id]);
+  }
+  if(data.currentGauge!==undefined) $("currentGauge").value=data.currentGauge;
+
+  if(data.avoidEdges){
+    const radio=document.querySelector(`input[name="avoidEdges"][value="${data.avoidEdges}"]`);
+    if(radio)radio.checked=true;
+  }
+
+  $("playConditions").innerHTML="";
+  $("restConditions").innerHTML="";
+  for(const c of (data.playConditions||[])) addCondition("play",c.s,c.e);
+  for(const c of (data.restConditions||[])) addCondition("rest",c.s,c.e);
+  refreshConditions();
+}
+
+function clearSavedInputs(){
+  try{localStorage.removeItem(STORAGE_KEY);}catch(e){}
+}
+
 function resetAll(){
+  clearSavedInputs();
   initControls();$("playConditions").innerHTML="";$("restConditions").innerHTML="";
   $("messages").innerHTML="";$("resultCard").hidden=true;$("timeline").innerHTML="";$("scheduleTable").innerHTML="";updateTheory();
 }
 
 function wire(){
-  initControls();updateTheory();
-  ["startDay","startTime","endDay","endTime","eventYear","eventMonth"].forEach(id=>$(id).addEventListener("change",()=>{refreshConditions();updateTheory()}));
-  $("currentGauge").addEventListener("input",updateTheory);
-  $("currentGauge").addEventListener("change",updateTheory);
-  $("calcBtn").addEventListener("click",calculate);$("resetBtn").addEventListener("click",resetAll);$("addPlay").addEventListener("click",()=>addCondition("play"));$("addRest").addEventListener("click",()=>addCondition("rest"));
+  initControls();loadInputs();updateTheory();
+  ["startDay","startTime","endDay","endTime","eventYear","eventMonth"].forEach(id=>$(id).addEventListener("change",()=>{refreshConditions();updateTheory();saveInputs();}));
+  $("currentGauge").addEventListener("input",()=>{updateTheory();saveInputs();});
+  $("currentGauge").addEventListener("change",()=>{updateTheory();saveInputs();});
+  document.querySelectorAll('input[name="avoidEdges"]').forEach(r=>r.addEventListener("change",saveInputs));
+  $("calcBtn").addEventListener("click",()=>{saveInputs();calculate();});$("resetBtn").addEventListener("click",resetAll);$("addPlay").addEventListener("click",()=>{addCondition("play");saveInputs();});$("addRest").addEventListener("click",()=>{addCondition("rest");saveInputs();});
   $("dateDetailsBtn").addEventListener("click",()=>{$("dateDetails").hidden=!$("dateDetails").hidden});
-  $("nowBtn").addEventListener("click",()=>{const n=new Date();$("startDay").value=n.getDate();$("startTime").value=`${pad(n.getHours())}:${n.getMinutes()<30?"00":"30"}`;updateTheory();refreshConditions()});
+  $("nowBtn").addEventListener("click",()=>{const n=new Date();$("startDay").value=n.getDate();$("startTime").value=`${pad(n.getHours())}:${n.getMinutes()<30?"00":"30"}`;updateTheory();refreshConditions();saveInputs();});
 }
 wire();
 
