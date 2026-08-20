@@ -83,7 +83,7 @@ table{width:100%;border-collapse:collapse;font-size:14px}th,td{border-bottom:1px
 <h2>おすすめプラン</h2>
 <div class="stats"><div class="stat"><div class="k">実際のプレイ時間</div><div class="v" id="actualPlay">-</div></div><div class="stat"><div class="k">実際の休憩時間</div><div class="v" id="actualRest">-</div></div><div class="stat"><div class="k">自由時間でのプレイ</div><div class="v" id="freePlay">-</div></div></div>
 <h3>タイムライン</h3>
-<div class="edit-note">タイムラインの「ライブ」「休憩」をクリックすると、その30分を切り替えられます。変更するとゲージを再計算します。</div>
+<div class="edit-note">タイムラインの「ライブ」「休憩」をクリックすると、その30分を切り替えられます。絶対プレイ・絶対休憩の時間帯は編集できません。変更するとゲージを再計算します。</div>
 <div id="timelineWarnings"></div>
 <div id="timeline" class="timeline"></div>
 <h3>タイムスケジュール</h3><div id="scheduleTable"></div>
@@ -372,5 +372,24 @@ function wire(){
 }
 wire();
 
+// イベント設定：25日20:00〜28日20:00
+$("eventYear").value="2026";
+$("eventMonth").value="8";
+$("startDay").value="25";
+$("startTime").value="20:00";
+$("endDay").value="28";
+$("endTime").value="20:00";
+refreshConditions();
+updateTheory();
+
+// 絶対プレイ
+addCondition("play","42","60");   // 26日17:00〜27日02:00
+addCondition("play","90","108");  // 27日17:00〜28日02:00
+addCondition("play","122","144"); // 28日09:00〜28日20:00
+
+// 絶対休憩
+addCondition("rest","12","16");   // 26日02:00〜04:00
+addCondition("rest","60","64");   // 27日02:00〜04:00
+addCondition("rest","108","112"); // 28日02:00〜04:00
 </script>
 </body></html>
