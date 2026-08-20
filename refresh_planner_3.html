@@ -1,0 +1,376 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>イベラン リフレッシュゲージ プランナー</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f6f7f9;color:#222;font-family:system-ui,-apple-system,"Noto Sans JP",sans-serif}
+.wrap{max-width:1100px;margin:auto;padding:24px 16px 50px}h1{font-size:27px;margin:0 0 8px}h2{font-size:19px;margin:0 0 14px}h3{font-size:16px;margin:18px 0 10px}
+.desc{color:#666;line-height:1.6;margin-bottom:20px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}.card{background:#fff;border:1px solid #d8dce3;border-radius:14px;padding:18px}.full{grid-column:1/-1}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:12px}.condition .row{grid-template-columns:1fr 1fr auto;align-items:end}
+label{display:block;font-weight:650;margin-bottom:6px}select,input{width:100%;padding:9px 10px;border:1px solid #c9cdd5;border-radius:8px;background:#fff;font:inherit}
+button{font:inherit;cursor:pointer;border-radius:9px;padding:10px 14px}.primary{background:#222;color:#fff;border:0;font-weight:700}.secondary{background:#fff;border:1px solid #c9cdd5}
+.hint,.small{font-size:13px;color:#666}.hint{margin-top:6px}.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.stat{border:1px solid #d8dce3;border-radius:10px;padding:12px;background:#fafbfc}.stat .k{font-size:12px;color:#666}.stat .v{font-size:21px;font-weight:700;margin-top:4px}
+.condition{border:1px solid #d8dce3;border-radius:10px;padding:12px;margin-bottom:9px;background:#fcfcfd}.remove{white-space:nowrap}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.success,.warning,.error{border-radius:10px;padding:12px;line-height:1.6;margin-top:12px}.success{background:#f0f8f2;border:1px solid #b8d9bf}.warning{background:#fff7df;border:1px solid #ead58b}.error{background:#fff0f0;border:1px solid #e4a6a6}
+.timeline{display:flex;flex-direction:column;gap:12px}.timelineChunk{border:1px solid #d8dce3;border-radius:10px;overflow:hidden}.timelineChunkHeader{padding:8px 10px;background:#fafbfc;font-weight:700;font-size:13px}.timelineRow{display:grid;grid-template-columns:repeat(24,minmax(0,1fr))}.seg{min-width:0;padding:7px 2px;text-align:center;font-size:11px;border-right:1px solid rgba(0,0,0,.08)}.seg:last-child{border:0}.play{background:#dff2e3}.rest{background:#e2eefb}.fixed-play{outline:2px solid #68a873;outline-offset:-2px}.fixed-rest{outline:2px solid #5e8fc7;outline-offset:-2px}.editable{cursor:pointer;user-select:none}.editable:hover{filter:brightness(.97)}.gauge-over{outline:3px solid #d33b3b!important;outline-offset:-3px;background:#ffe4e4!important}.gauge-under{outline:3px solid #d33b3b!important;outline-offset:-3px;background:#ffe4e4!important}.edit-note{font-size:13px;color:#666;margin:8px 0}.warning-list{margin:8px 0 0;padding-left:20px}.seg .time{font-weight:700}.seg .g{margin-top:4px;color:#555}
+@media(max-width:760px){.timelineRow{grid-template-columns:repeat(12,minmax(0,1fr))}.seg{font-size:10px;padding:6px 1px}.seg .time{font-size:9px}}
+table{width:100%;border-collapse:collapse;font-size:14px}th,td{border-bottom:1px solid #d8dce3;padding:8px 6px;text-align:left}th{background:#fafbfc}
+@media(max-width:760px){.grid,.row{grid-template-columns:1fr}.stats{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>イベラン リフレッシュゲージ プランナー</h1>
+<div class="desc">30分単位です。プレイ時間を最大化しつつ、なるべく連続して走り、休むプランを作ります。<br>
+  なるべく長く走る設定になっているので、きつかったら休憩時間を指定してください。<br>
+18時間でたまって6時間で全回復する計算なので、周回の速さやマイセカイなどによって誤差が出ます。 </div>
+
+<div class="grid">
+<section class="card">
+<h2>イベント設定</h2>
+<div class="row">
+<div>
+<label>基準日時（イベント開始時刻／現在時刻）</label>
+<div class="row"><select id="startDay"></select><select id="startTime"></select></div>
+<button type="button" class="secondary" id="nowBtn" style="margin-top:7px">現在時刻を入力</button>
+</div>
+<div>
+<label>イベント終了</label>
+<div class="row"><select id="endDay"></select><select id="endTime"></select></div>
+</div>
+</div>
+<button type="button" class="secondary" id="dateDetailsBtn" style="margin-top:10px">年・月を設定</button>
+<div id="dateDetails" hidden style="margin-top:10px"><div class="row"><div><label>年</label><select id="eventYear"></select></div><div><label>月</label><select id="eventMonth"></select></div></div></div>
+<div style="margin-top:14px">
+<label>基準時のリフレッシュゲージ (%)</label>
+<input id="currentGauge" type="number" min="0" max="100" step="0.1" value="">
+<div class="hint">イベント開始前なら開始時刻・開始時ゲージ、イベント中なら現在時刻・現在ゲージを入力します。</div>
+<div class="hint">終了時ゲージは100%になる前提です。</div>
+<div style="margin-top:12px">
+<label>100%・0%の到達を避ける</label>
+<div style="display:flex;gap:16px;flex-wrap:wrap">
+<label style="font-weight:400;display:flex;align-items:center;gap:5px">
+<input type="radio" name="avoidEdges" value="yes" checked style="width:auto"> 避ける
+</label>
+<label style="font-weight:400;display:flex;align-items:center;gap:5px">
+<input type="radio" name="avoidEdges" value="no" style="width:auto"> 避けない
+</label>
+</div>
+<div class="hint">「避ける」を選ぶと、最後以外はなるべく100%・0%にならないようにします。</div>
+</div>
+</div>
+</section>
+
+<section class="card">
+<h2>基準日時からイベント終了までの理論値</h2>
+<div class="stats"><div class="stat"><div class="k">イベント時間</div><div class="v" id="duration">-</div></div><div class="stat"><div class="k">理論上の最大プレイ</div><div class="v" id="maxPlay">-</div></div><div class="stat"><div class="k">理論上の休憩可能時間</div><div class="v" id="maxRest">-</div></div></div>
+</section>
+
+<section class="card">
+<h2>絶対プレイしたい時間帯</h2><div id="playConditions"></div><button type="button" class="secondary" id="addPlay">＋時間帯を追加</button>
+</section>
+<section class="card">
+<h2>絶対休みたい時間帯</h2><div id="restConditions"></div><button type="button" class="secondary" id="addRest">＋時間帯を追加</button>
+</section>
+
+<section class="card full">
+<h2>計算</h2><div class="actions"><button type="button" class="primary" id="calcBtn">プランを計算</button><button type="button" class="secondary" id="resetBtn">入力をリセット</button></div><div id="messages"></div>
+</section>
+
+<section class="card full" id="resultCard" hidden>
+<h2>おすすめプラン</h2>
+<div class="stats"><div class="stat"><div class="k">実際のプレイ時間</div><div class="v" id="actualPlay">-</div></div><div class="stat"><div class="k">実際の休憩時間</div><div class="v" id="actualRest">-</div></div><div class="stat"><div class="k">自由時間でのプレイ</div><div class="v" id="freePlay">-</div></div></div>
+<h3>タイムライン</h3>
+<div class="edit-note">タイムラインの「ライブ」「休憩」をクリックすると、その30分を切り替えられます。変更するとゲージを再計算します。</div>
+<div id="timelineWarnings"></div>
+<div id="timeline" class="timeline"></div>
+<h3>タイムスケジュール</h3><div id="scheduleTable"></div>
+</section>
+</div>
+</div>
+
+<script>
+"use strict";
+const STEP=0.5, PLAY_RATE=100/18, REST_RATE=100/6;
+
+const $=id=>document.getElementById(id);
+function fmtHours(h){const t=Math.round(h*60),a=Math.floor(t/60),m=t%60;return a?(m?`${a}時間${m}分`:`${a}時間`):`${m}分`}
+function fmtDuration(h){return fmtHours(h)}
+function pad(n){return String(n).padStart(2,"0")}
+
+function fillSelect(el, items, value){
+  el.innerHTML="";
+  if(value===undefined) el.insertAdjacentHTML("beforeend",`<option value="">選択してください</option>`);
+  for(const [v,t] of items) el.insertAdjacentHTML("beforeend",`<option value="${v}">${t}</option>`);
+  if(value!==undefined) el.value=String(value);
+}
+function timeItems(){const a=[];for(let h=0;h<24;h++)for(const m of [0,30]){const v=`${pad(h)}:${pad(m)}`;a.push([v,v])}return a}
+function dayItems(){return Array.from({length:31},(_,i)=>[i+1,`${i+1}日`])}
+
+function initControls(){
+  fillSelect($("startDay"),dayItems());fillSelect($("endDay"),dayItems());
+  fillSelect($("startTime"),timeItems());fillSelect($("endTime"),timeItems());
+  fillSelect($("eventYear"),Array.from({length:5},(_,i)=>{const y=new Date().getFullYear()-2+i;return[y,`${y}年`]}));
+  fillSelect($("eventMonth"),Array.from({length:12},(_,i)=>[i+1,`${i+1}月`]));
+  $("currentGauge").value="";
+}
+function info(){
+  const sd=+$("startDay").value,ed=+$("endDay").value;
+  const [sh,sm]=$("startTime").value.split(":").map(Number),[eh,em]=$("endTime").value.split(":").map(Number);
+  const y=+$("eventYear").value,m=+$("eventMonth").value;
+  const start=new Date(y,m-1,sd,sh,sm);
+  let end=new Date(y,m-1,ed,eh,em);
+  if(end<=start) end=new Date(y,m,ed,eh,em);
+  return {start,end,eventMinutes:(end-start)/60000,remainingMinutes:(end-start)/60000,currentOffset:0};
+}
+function scheduleLabel(offsetHours){
+  const i=info(),d=new Date(i.start.getTime()+offsetHours*3600000);
+  return `${d.getDate()}日${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+function optionList(){
+  const i=info();if(!(i.eventMinutes>0))return `<option value="">イベント日時を確認</option>`;
+  const n=Math.round(i.eventMinutes/30),a=[`<option value="">選択してください</option>`];
+  for(let k=0;k<=n;k++)a.push(`<option value="${k}">${scheduleLabel(k*.5)}</option>`);
+  return a.join("");
+}
+function addCondition(type,sv="",ev=""){
+  const box=type==="play"?$("playConditions"):$("restConditions"),d=document.createElement("div");d.className="condition";
+  d.innerHTML=`<div class="row"><div><label>開始日時</label><select class="c-start">${optionList()}</select></div><div><label>終了日時</label><select class="c-end">${optionList()}</select></div><button type="button" class="secondary remove">削除</button></div>`;
+  box.appendChild(d);d.querySelector(".c-start").value=sv;d.querySelector(".c-end").value=ev;d.querySelector(".remove").onclick=()=>d.remove();
+}
+function refreshConditions(){
+  document.querySelectorAll(".condition").forEach(row=>{
+    const s=row.querySelector(".c-start").value,e=row.querySelector(".c-end").value;
+    row.querySelector(".c-start").innerHTML=optionList();row.querySelector(".c-end").innerHTML=optionList();
+    if([...row.querySelector(".c-start").options].some(o=>o.value===s))row.querySelector(".c-start").value=s;
+    if([...row.querySelector(".c-end").options].some(o=>o.value===e))row.querySelector(".c-end").value=e;
+  });
+}
+function getConds(type){
+  return [...(type==="play"?$("playConditions"):$("restConditions")).querySelectorAll(".condition")].map(r=>({s:r.querySelector(".c-start").value,e:r.querySelector(".c-end").value})).filter(x=>x.s!==""&&x.e!=="");
+}
+function mark(N,conds,currentOffset){
+  const a=Array(N).fill(false);
+  for(const c of conds){const s=+c.s-currentOffset,e=+c.e-currentOffset;if(Number.isInteger(s)&&Number.isInteger(e)&&e>s)for(let k=Math.max(0,s);k<Math.min(N,e);k++)a[k]=true}
+  return a;
+}
+function updateTheory(){
+  const i=info();
+  if(!(i.eventMinutes>0)){
+    ["duration","maxPlay","maxRest"].forEach(x=>$(x).textContent="-");
+    return;
+  }
+  const h=i.eventMinutes/60;
+  const g=parseFloat($("currentGauge").value);
+  $("duration").textContent=fmtHours(h);
+
+  // 基準時のゲージを含め、「終了時100%」になるように
+  // プレイ時間と休憩時間の理論値を計算する。
+  // g + (100/18)P - (100/6)R = 100
+  // P + R = h
+  if(!Number.isFinite(g) || g<0 || g>100){
+    $("maxPlay").textContent="-";
+    $("maxRest").textContent="-";
+    return;
+  }
+
+  // 実際のイベランと同じく、プレイ・休憩とも30分単位にそろえる。
+  // 最大プレイ時間を30分単位で切り下げ、その残りを休憩時間とする。
+  let p=4.5*(1-g/100)+0.75*h;
+  p=Math.max(0,Math.min(h,p));
+  p=Math.floor(p/0.5+1e-9)*0.5;
+  const r=h-p;
+
+  $("maxPlay").textContent=fmtHours(p);
+  $("maxRest").textContent=fmtHours(r);
+}
+function calculate(){
+  const msg=$("messages");msg.innerHTML="";const i=info();
+  if(!(i.eventMinutes>0)){msg.innerHTML='<div class="error">イベント開始・終了を正しく入力してください。</div>';return}
+  if(i.remainingMinutes<=0){msg.innerHTML='<div class="error">現在の時刻がイベント終了時刻以降です。</div>';return}
+  if(i.remainingMinutes%30!==0){msg.innerHTML='<div class="error">イベント終了までの時間は30分単位にしてください。</div>';return}
+  const N=Math.round(i.remainingMinutes/30),g0=+$("currentGauge").value;if(!(g0>=0&&g0<=100)){msg.innerHTML='<div class="error">現在のゲージは0〜100%で入力してください。</div>';return}
+  const pc=getConds("play"),rc=getConds("rest"),fp=mark(N,pc,i.currentOffset),fr=mark(N,rc,i.currentOffset);
+  for(let k=0;k<N;k++)if(fp[k]&&fr[k]){msg.innerHTML='<div class="error">絶対プレイと絶対休憩が重なっています。</div>';return}
+
+  const SCALE=10000,pd=Math.round(PLAY_RATE*STEP*SCALE),rd=Math.round(REST_RATE*STEP*SCALE),startG=Math.round(g0*SCALE);
+  let states=new Map([[startG+"|start",{score:0,switches:0,g:startG,last:"start",prev:null,act:null}]]);
+  function better(a,b){return !b||a.score>b.score||(a.score===b.score&&a.switches<b.switches)}
+  const avoidEdges=document.querySelector('input[name="avoidEdges"]:checked')?.value==="yes";
+
+  for(let k=0;k<N;k++){
+    const next=new Map();
+    for(const st of states.values())for(const act of ["play","rest"]){
+      if(fp[k]&&act!=="play"||fr[k]&&act!=="rest")continue;
+      if(act==="play"&&st.g>=SCALE*100)continue;
+
+      const ng=act==="play"
+        ?Math.min(SCALE*100,st.g+pd)
+        :Math.max(0,st.g-rd);
+
+      const isLast=k===N-1;
+      const hitsEdge=!isLast&&(ng===0||ng===SCALE*100);
+      const edgePenalty=avoidEdges&&hitsEdge?1000000:0;
+
+      const cand={
+        score:st.score+(act==="play"?1:0)-edgePenalty,
+        switches:st.switches+(st.last!=="start"&&st.last!==act?1:0),
+        g:ng,last:act,prev:st,act
+      };
+      const key=ng+"|"+act;
+      if(better(cand,next.get(key)))next.set(key,cand);
+    }
+    states=next;
+  }
+
+  let best=null;
+  for(const st of states.values())
+    if(Math.abs(st.g-SCALE*100)<=Math.round(.03*SCALE)&&better(st,best))best=st;
+  if(!best)
+    for(const st of states.values())
+      if(!best||st.score>best.score||
+        (st.score===best.score&&(
+          st.switches<best.switches||
+          (st.switches===best.switches&&
+           Math.abs(st.g-SCALE*100)<Math.abs(best.g-SCALE*100)
+          )
+        )))best=st;
+  if(!best){msg.innerHTML='<div class="error">指定条件では実行可能なプランがありません。</div>';return}
+
+  const actions=Array(N);let cur=best;for(let k=N-1;k>=0;k--){actions[k]=cur.act;cur=cur.prev}
+  const plays=actions.filter(x=>x==="play").length,rests=N-plays,fixed=fp.filter(Boolean).length,free=Math.max(0,plays-fixed);
+  $("actualPlay").textContent=fmtHours(plays*STEP);$("actualRest").textContent=fmtHours(rests*STEP);$("freePlay").textContent=fmtHours(free*STEP);
+  msg.innerHTML=`<div class="success">条件を満たすプランです。プレイ⇔休憩の切り替え回数：${best.switches}回。</div>`;
+  renderTimeline(actions,fp,fr,g0);
+  // 計算後はタイムラインを直接編集できるようにする。
+  updateEditedTimeline(actions,fp,fr,g0);
+  renderTable(actions,fp,fr);
+  $("resultCard").hidden=false;
+}
+function renderTimelineWarnings(warnings){
+  const box=$("timelineWarnings");
+  if(!box)return;
+  if(!warnings.length){
+    box.innerHTML='<div class="success">ゲージは0〜100%の範囲内です。</div>';
+    return;
+  }
+  box.innerHTML='<div class="error"><strong>ゲージの警告</strong><ul class="warning-list">'+
+    warnings.map(w=>`<li>${w}</li>`).join("")+
+    '</ul></div>';
+}
+
+function updateEditedTimeline(actions,fp,fr,g0){
+  const box=$("timeline");
+  box.innerHTML="";
+  let g=g0;
+  const warnings=[];
+  const CHUNK=24;
+
+  for(let base=0;base<actions.length;base+=CHUNK){
+    const wrap=document.createElement("div");
+    wrap.className="timelineChunk";
+    const header=document.createElement("div");
+    header.className="timelineChunkHeader";
+    header.textContent=`${scheduleLabel(base*STEP)}〜${scheduleLabel(Math.min(base+CHUNK,actions.length)*STEP)}`;
+    wrap.appendChild(header);
+
+    const row=document.createElement("div");
+    row.className="timelineRow";
+
+    for(let k=base;k<Math.min(base+CHUNK,actions.length);k++){
+      const act=actions[k];
+      const before=g;
+      g=g+(act==="play"?PLAY_RATE:-REST_RATE)*STEP;
+
+      const d=document.createElement("div");
+      let cls=`seg ${act==="play"?"play":"rest"}`;
+      if(fp[k])cls+=" fixed-play";
+      if(fr[k])cls+=" fixed-rest";
+      if(!fp[k]&&!fr[k])cls+=" editable";
+
+      if(g>100+1e-9){
+        cls+=" gauge-over";
+        warnings.push(`${scheduleLabel(k*STEP)}〜${scheduleLabel((k+1)*STEP)}でゲージが100%を超えます（${g.toFixed(1)}%）。`);
+      }
+      if(g<-1e-9){
+        cls+=" gauge-under";
+        warnings.push(`${scheduleLabel(k*STEP)}〜${scheduleLabel((k+1)*STEP)}でゲージが0%を下回ります（${g.toFixed(1)}%）。`);
+      }
+
+      d.className=cls;
+      d.innerHTML=`<div class="time">${scheduleLabel(k*STEP)}</div><div>${act==="play"?"ライブ":"休憩"}</div><div class="g">${g.toFixed(1)}%</div>`;
+      d.title=`${scheduleLabel(k*STEP)}〜${scheduleLabel((k+1)*STEP)} / ${before.toFixed(1)}%→${g.toFixed(1)}%`;
+      d.dataset.index=k;
+
+      if(!fp[k]&&!fr[k]){
+        d.addEventListener("click",()=>{
+          actions[k]=actions[k]==="play"?"rest":"play";
+          updateEditedTimeline(actions,fp,fr,g0);
+          updateEditedSummary(actions,fp);
+        });
+      }
+
+      row.appendChild(d);
+    }
+    wrap.appendChild(row);
+    box.appendChild(wrap);
+  }
+  renderTimelineWarnings(warnings);
+}
+
+function updateEditedSummary(actions,fp){
+  const plays=actions.filter(x=>x==="play").length;
+  const rests=actions.length-plays;
+  const fixed=fp.filter(Boolean).length;
+  const free=Math.max(0,plays-fixed);
+  $("actualPlay").textContent=fmtHours(plays*STEP);
+  $("actualRest").textContent=fmtHours(rests*STEP);
+  $("freePlay").textContent=fmtHours(free*STEP);
+}
+
+function renderTimeline(a,fp,fr,g0){
+  const box=$("timeline");box.innerHTML="";let g=g0;
+  // 12時間ごとにタイムラインを分割して縦に積む（スマホでも見やすくする）
+  const CHUNK=24; // 30分×24 = 12時間
+  for(let base=0;base<a.length;base+=CHUNK){
+    const wrap=document.createElement("div");wrap.className="timelineChunk";
+    const header=document.createElement("div");header.className="timelineChunkHeader";
+    header.textContent=`${scheduleLabel(base*STEP)}〜${scheduleLabel(Math.min(base+CHUNK,a.length)*STEP)}`;
+    wrap.appendChild(header);
+    const row=document.createElement("div");row.className="timelineRow";
+    for(let k=base;k<Math.min(base+CHUNK,a.length);k++){
+      const act=a[k],before=g;
+      g=Math.max(0,Math.min(100,g+(act==="play"?PLAY_RATE:-REST_RATE)*STEP));
+      const d=document.createElement("div");
+      d.className=`seg ${act==="play"?"play":"rest"}${fp[k]?" fixed-play":""}${fr[k]?" fixed-rest":""}`;
+      d.innerHTML=`<div class="time">${scheduleLabel(k*STEP)}</div><div>${act==="play"?"ライブ":"休憩"}</div><div class="g">${g.toFixed(1)}%</div>`;
+      d.title=`${scheduleLabel(k*STEP)}〜${scheduleLabel((k+1)*STEP)} / ${before.toFixed(1)}%→${g.toFixed(1)}%`;
+      row.appendChild(d);
+    }
+    wrap.appendChild(row);box.appendChild(wrap);
+  }
+}
+function renderTable(a,fp,fr){
+  const rows=[];let k=0;while(k<a.length){const act=a[k],p=fp[k],r=fr[k];let j=k+1;while(j<a.length&&a[j]===act&&fp[j]===p&&fr[j]===r)j++;rows.push(`<tr><td>${scheduleLabel(k*STEP)}</td><td>${scheduleLabel(j*STEP)}</td><td>${fmtDuration((j-k)*STEP)}</td><td>${act==="play"?"ライブ":"休憩"}</td><td>${p?"絶対プレイ":r?"絶対休憩":"自由時間"}</td></tr>`);k=j}
+  $("scheduleTable").innerHTML=`<table><thead><tr><th>開始</th><th>終了</th><th>連続時間</th><th>行動</th><th>区分</th></tr></thead><tbody>${rows.join("")}</tbody></table>`;
+}
+function resetAll(){
+  initControls();$("playConditions").innerHTML="";$("restConditions").innerHTML="";
+  $("messages").innerHTML="";$("resultCard").hidden=true;$("timeline").innerHTML="";$("scheduleTable").innerHTML="";updateTheory();
+}
+
+function wire(){
+  initControls();updateTheory();
+  ["startDay","startTime","endDay","endTime","eventYear","eventMonth"].forEach(id=>$(id).addEventListener("change",()=>{refreshConditions();updateTheory()}));
+  $("currentGauge").addEventListener("input",updateTheory);
+  $("currentGauge").addEventListener("change",updateTheory);
+  $("calcBtn").addEventListener("click",calculate);$("resetBtn").addEventListener("click",resetAll);$("addPlay").addEventListener("click",()=>addCondition("play"));$("addRest").addEventListener("click",()=>addCondition("rest"));
+  $("dateDetailsBtn").addEventListener("click",()=>{$("dateDetails").hidden=!$("dateDetails").hidden});
+  $("nowBtn").addEventListener("click",()=>{const n=new Date();$("startDay").value=n.getDate();$("startTime").value=`${pad(n.getHours())}:${n.getMinutes()<30?"00":"30"}`;updateTheory();refreshConditions()});
+}
+wire();
+
+</script>
+</body></html>
